@@ -1,3 +1,5 @@
+FAST=True
+
 ITER_SHADER='''
     #version 330
     in vec2 v_pos;
@@ -14,12 +16,10 @@ ITER_SHADER='''
 	#define PI 3.14159265358979323846
 
     vec2 cx_pow(vec2 z, vec2 p) {
-        
         float t_r = dot(p, vec2(log(sqrt(dot(z, z))), atan(z.y, z.x)));
         float t_i = dot(vec2(p.y, p.x), vec2(log(sqrt(dot(z, z))), atan(z.y, z.x)));
         return exp(t_r) * vec2(cos(t_i), sin(t_i));
     }
-
 
     // https://stackoverflow.com/questions/56195735/cant-find-a-way-to-color-the-mandelbrot-set-the-way-im-aiming-for
     vec3 spectral_color(float l)        // RGB <0,1> <- lambda l <400,700> [nm]
@@ -49,8 +49,8 @@ ITER_SHADER='''
         vec2 c = P.zw;
         vec2 a = (p.x * u_Ax) + (p.y * u_Ay) + u_Ap;
 
-        // float n = 200;
-        float n = 1000;
+        
+        float n = ''' + ("200" if FAST else "1000") + ''';
 
         int i = 0;
         for( i=0; i<n; i++ ) {
@@ -59,7 +59,7 @@ ITER_SHADER='''
         }
 
         float q=float(i)/float(n);
-        // q = pow(q,0.2);
+        ''' + ("q = pow(q,0.2);" if FAST else "") + '''
         f_color=vec4(spectral_color(400.0+(300.0*q)),1.0);
 
     }
