@@ -1,7 +1,8 @@
-FAST=True
+FAST=False
 
+# #version 330
 ITER_SHADER='''
-    #version 330
+    #version 400
     in vec2 v_pos;
     out vec4 f_color;
     uniform vec2 u_o;
@@ -43,6 +44,7 @@ ITER_SHADER='''
         vec2 p = ((v_pos * u_d) / 2.0) + u_o;
 
         // 4d (Re(z), Im(z), Re(c), Im(c)) coords
+
         vec4 P = (p.x * u_Xp) + (p.y * u_Yp) + u_P0;
 
         vec2 z = P.xy;
@@ -59,8 +61,10 @@ ITER_SHADER='''
         }
 
         float q=float(i)/float(n);
-        ''' + ("q = pow(q,0.2);" if FAST else "") + '''
+        q = pow(q,0.2);
         f_color=vec4(spectral_color(400.0+(300.0*q)),1.0);
 
     }
 '''
+# ''' + ("q = pow(q,0.2);" if FAST else "") + '''
+DOUBLE_SHADER='''

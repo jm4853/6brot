@@ -52,12 +52,32 @@ def event_draw_dot(vec, i):
         return __draw_dot(event, vec, i)
     return __d
 
+def event_get_origin(vec, dx_scale):
+    def __d(event):
+        vec[2] = dx_scale(event.widget.get())
+    return __d
+
 def event_get(vec, i):
     def __d(event):
         vec[i] = event.widget.get()
     return __d
 
-def worker(v, u, p, o):
+def on_key_press(O):
+    def __d(event):
+        c = event.char
+        sym = event.keysym
+        print(f"Key pressed: char='{c}', keysym='{sym}'")
+        if sym == 'Up':
+            O[1] += (0.05 * O[2])
+        elif sym == 'Down':
+            O[1] -= (0.05 * O[2])
+        elif sym == 'Right':
+            O[0] += (0.05 * O[2])
+        elif sym == 'Left':
+            O[0] -= (0.05 * O[2])
+    return __d
+
+def controlWorker(v, u, p, o, dx_scale):
     root = tk.Tk()
     root.title("Parameter Panel")
     
@@ -141,9 +161,10 @@ def worker(v, u, p, o):
 
     scrollBar = tk.Scale(row4_frame, from_=0, to=0.99, resolution=0.00001, orient=tk.HORIZONTAL)
     scrollBar.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-    scrollBar.bind("<B1-Motion>", event_get(o, 2))
+    scrollBar.bind("<B1-Motion>", event_get_origin(o, dx_scale))
     row4_frame.columnconfigure(1, weight=4)
 
+    root.bind("<Key>", on_key_press(o))
     
     root.mainloop()
 
