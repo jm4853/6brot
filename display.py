@@ -8,10 +8,13 @@ from enum import Enum
 
 
 
-WINDOW_WIDTH = 1500
+WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = WINDOW_WIDTH
 # WINDOW_WIDTH = 1200
 # WINDOW_HEIGHT = 1000
+
+
+        
 
 
 
@@ -29,13 +32,17 @@ class Viewer:
     MANDEL64_FRAG="mandel64.frag"
     BLUR_FRAG_SHADER="blur.frag"
 
-    def __init__(self, v, u, p, o, a_scale):
+    def __init__(self, v, u, p, o, a_scale, dx_scale):
         self.V = v
         self.U = u
         self.P = p
         self.O = o
         self.A_SCALE = a_scale
         self.ctx = None
+        self.dx_scale = dx_scale
+        self.last_y = None
+        self.last_x = None
+        self.mouse_pressed = None
 
     def mandel32(self):
         # Initialize GLFW
@@ -50,6 +57,11 @@ class Viewer:
         if not window:
             glfw.terminate()
             raise Exception("No window")
+
+        glfw.set_key_callback(window, self.get_key_cb())
+        glfw.set_scroll_callback(window, self.get_scroll_cb())
+        glfw.set_mouse_button_callback(window, self.get_mouse_cb())
+        glfw.set_cursor_pos_callback(window, self.get_cursor_cb())
         # xpos, ypos = glfw.get_monitor_pos(monitor)
         # glfw.set_window_pos(window, xpos, ypos)
         glfw.make_context_current(window)
@@ -77,7 +89,7 @@ class Viewer:
             v[-2:] *= self.A_SCALE
             u[-2:] *= self.A_SCALE
             p[-2:] *= self.A_SCALE
-            o = np.array([self.O[0], 0 - self.O[1]])
+            o = np.array([self.O[0], self.O[1]])
             dx = self.O[2]
         
             dy = (WINDOW_HEIGHT / WINDOW_WIDTH) * dx
@@ -111,6 +123,10 @@ class Viewer:
         # Initialize GLFW
         glfw.init()
         window = glfw.create_window(WINDOW_WIDTH, WINDOW_HEIGHT, "6brot 64-bit", None, None)
+        glfw.set_key_callback(window, self.get_key_cb())
+        glfw.set_scroll_callback(window, self.get_scroll_cb())
+        glfw.set_mouse_button_callback(window, self.get_mouse_cb())
+        glfw.set_cursor_pos_callback(window, self.get_cursor_cb())
         glfw.make_context_current(window)
         
         self.ctx = moderngl.create_context()
@@ -122,27 +138,22 @@ class Viewer:
             1.0, 1.0,
         ], dtype='f4')
         
-        prog = self.load_program(self.fshader)
+        prog = self.load_program(self.MANDEL64_FRAG)
         
         vbo = self.ctx.buffer(vertices.tobytes())
         vao = self.ctx.simple_vertex_array(prog, vbo, 'in_pos')
 
         while not glfw.window_should_close(window):
             time.sleep(0.1)
-            # t += 0.01
+
             v = np.array(self.V)
             u = np.array(self.U)
             p = np.array(self.P)
             v[-2:] *= self.A_SCALE
             u[-2:] *= self.A_SCALE
             p[-2:] *= self.A_SCALE
-            o = np.array([self.O[0], 0 - self.O[1]])
+            o = np.array([self.O[0], self.O[1]])
             dx = self.O[2]
-            # dx = 1/(1-(O[2]**8)) - 1
-            # print(f'O: {self.O}')
-
-            # u[0], u[1] = 0.5 * np.sin(t), 0.5 * np.cos(t)
-            # u[2], u[3] = 0.5 * np.sin(t*1.67), 0.5 * np.cos(t*1.67)
         
             dy = (WINDOW_HEIGHT / WINDOW_WIDTH) * dx
             x_p = v / np.linalg.norm(v)
@@ -179,11 +190,57 @@ class Viewer:
     def load_program(self, fragment_path, vertex_path=VERTEX_SHADER):
         vert = None
         with open(vertex_path, 'r') as f:
-            # vert = ''.join(f.readlines())
             vert = f.read()
         frag = None
         with open(fragment_path, 'r') as f:
-            # frag = ''.join(f.readlines())
             frag = f.read()
         return self.ctx.program(vertex_shader=vert, fragment_shader=frag)
+
+    def get_key_cb(self):
+        def key_event_handler(window, key, scancode, action, mods):
+            if key == glfw.KEY_ESCAPE and action != glfw.RELEASE:
+                print("<Esc> Detected, closing")
+                glfw.set_window_should_close(window, True)
+            elif key == glfw.KEY_UP and action != glfw.RELEASE:
+                self.O[1] -= (0.05 * self.O[2])
+            elif key == glfw.KEY_DOWN and action != glfw.RELEASE:
+                self.O[1] += (0.05 * self.O[2])
+            elif key == glfw.KEY_LEFT and action != glfw.RELEASE:
+                self.O[0] -= (0.05 * self.O[2])
+            elif key == glfw.KEY_RIGHT and action != glfw.RELEASE:
+                self.O[0] += (0.05 * self.O[2])
+            print(f'Got key: {key}:{action}')
+        return key_event_handler
+    
+    def get_scroll_cb(self):
+        def scroll_event_handler(window, xoffset, yoffset):
+            self.O[2] -= yoffset * 0.1 * self.O[2]
+            if self.O[2] < 0.0:
+                self.O[2] = 0.0
+        return scroll_event_handler
+
+    def get_mouse_cb(self):
+        def mouse_button_event_handler(window, button, action, mods):
+            if button == glfw.MOUSE_BUTTON_LEFT:
+                if action == glfw.PRESS:
+                    self.mouse_pressed = True
+                    self.last_x, self.last_y = glfw.get_cursor_pos(window)
+                elif action == glfw.RELEASE:
+                    self.mouse_pressed = False
+        return mouse_button_event_handler
+
+    def get_cursor_cb(self):
+        def cursor_position_event_handler(window, xpos, ypos):
+            if self.mouse_pressed:
+                width, height = glfw.get_window_size(window)
+                drag_delta_x = xpos - self.last_x
+                drag_delta_y = ypos - self.last_y
+                self.last_x = xpos
+                self.last_y = ypos
+                dx = drag_delta_x / width
+                dy = drag_delta_y / height
+                self.O[0] -= dx * self.O[2]
+                self.O[1] += dy * self.O[2]
+        return cursor_position_event_handler
+        
 

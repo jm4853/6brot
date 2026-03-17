@@ -53,6 +53,7 @@ if __name__ == "__main__":
     a_t = threading.Thread(target=animate_worker, args=(P,), daemon=True)
     a_t.start()
 
-    v = Viewer(V, U, P, O, A_SCALE)
+    v = Viewer(V, U, P, O, A_SCALE, dx_scale)
     v.mandel32()
+    # v.mandel64()
 

@@ -201,7 +201,7 @@ void main() {
     vec4 z = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xz), df64v2_sdot(p.zw, u_Yz)), u_Pz);
     vec4 c = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xc), df64v2_sdot(p.zw, u_Yc)), u_Pc);
 
-    float q = test_mandel(z, c, center_weight * n);
+    float q = test_mandel(z, c, int(center_weight) * n);
 
     if( u_DoAvg ) {
         q *= center_weight / (halo_weight + center_weight);

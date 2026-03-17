@@ -66,15 +66,15 @@ def on_key_press(O):
     def __d(event):
         c = event.char
         sym = event.keysym
-        # print(f"Key pressed: char='{c}', keysym='{sym}'")
-        if sym == 'Up':
-            O[1] -= (0.05 * O[2])
-        elif sym == 'Down':
-            O[1] += (0.05 * O[2])
-        elif sym == 'Right':
-            O[0] += (0.05 * O[2])
-        elif sym == 'Left':
-            O[0] -= (0.05 * O[2])
+        print(f"Key pressed: char='{c}', keysym='{sym}'")
+        # if sym == 'Up':
+        #     O[1] -= (0.05 * O[2])
+        # elif sym == 'Down':
+        #     O[1] += (0.05 * O[2])
+        # elif sym == 'Right':
+        #     O[0] += (0.05 * O[2])
+        # elif sym == 'Left':
+        #     O[0] -= (0.05 * O[2])
     return __d
 
 def controlWorker(v, u, p, o, dx_scale):
@@ -141,30 +141,29 @@ def controlWorker(v, u, p, o, dx_scale):
         canvas.bind("<Configure>", event_configure(p, i))
         row3_frame.columnconfigure(i, weight=1)
 
+    # row4l_frame = tk.Frame(root)
+    # row4l_frame.pack(fill="both", expand=True)
+    # for i, t in enumerate(['Origin (x, y)', 'Δx']):
+    #     label4 = tk.Label(row4l_frame, text=t, font=(LABEL_FONT, 12))
+    #     label4.grid(row=0, column=i, padx=5, pady=(6, 2))
+    #     row4l_frame.columnconfigure(i, weight=i*3+1)
 
-    row4l_frame = tk.Frame(root)
-    row4l_frame.pack(fill="both", expand=True)
-    for i, t in enumerate(['Origin (x, y)', 'Δx']):
-        label4 = tk.Label(row4l_frame, text=t, font=(LABEL_FONT, 12))
-        label4.grid(row=0, column=i, padx=5, pady=(6, 2))
-        row4l_frame.columnconfigure(i, weight=i*3+1)
+    # row4_frame = tk.Frame(root)
+    # row4_frame.pack(fill="both", expand=True)
 
-    row4_frame = tk.Frame(root)
-    row4_frame.pack(fill="both", expand=True)
+    # canvas = tk.Canvas(row4_frame, bg="lightgray", width=200, height=200)
+    # canvas.grid(row=0, column=0, padx=5, pady=5, sticky="ns")
+    # canvas.bind("<Button-1>", event_draw_dot(o, 0))
+    # canvas.bind("<B1-Motion>", event_draw_dot(o, 0))
+    # canvas.bind("<Configure>", event_configure(o, 0))
+    # row4_frame.columnconfigure(0, weight=1)
 
-    canvas = tk.Canvas(row4_frame, bg="lightgray", width=200, height=200)
-    canvas.grid(row=0, column=0, padx=5, pady=5, sticky="ns")
-    canvas.bind("<Button-1>", event_draw_dot(o, 0))
-    canvas.bind("<B1-Motion>", event_draw_dot(o, 0))
-    canvas.bind("<Configure>", event_configure(o, 0))
-    row4_frame.columnconfigure(0, weight=1)
+    # scrollBar = tk.Scale(row4_frame, from_=0, to=0.99, resolution=0.00001, orient=tk.HORIZONTAL)
+    # scrollBar.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+    # scrollBar.bind("<B1-Motion>", event_get_origin(o, dx_scale))
+    # row4_frame.columnconfigure(1, weight=4)
 
-    scrollBar = tk.Scale(row4_frame, from_=0, to=0.99, resolution=0.00001, orient=tk.HORIZONTAL)
-    scrollBar.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-    scrollBar.bind("<B1-Motion>", event_get_origin(o, dx_scale))
-    row4_frame.columnconfigure(1, weight=4)
-
-    root.bind("<Key>", on_key_press(o))
+    # root.bind("<Key>", on_key_press(o))
     
     root.mainloop()
 
