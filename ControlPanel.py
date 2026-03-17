@@ -66,11 +66,11 @@ def on_key_press(O):
     def __d(event):
         c = event.char
         sym = event.keysym
-        print(f"Key pressed: char='{c}', keysym='{sym}'")
+        # print(f"Key pressed: char='{c}', keysym='{sym}'")
         if sym == 'Up':
-            O[1] += (0.05 * O[2])
-        elif sym == 'Down':
             O[1] -= (0.05 * O[2])
+        elif sym == 'Down':
+            O[1] += (0.05 * O[2])
         elif sym == 'Right':
             O[0] += (0.05 * O[2])
         elif sym == 'Left':

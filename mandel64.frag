@@ -31,8 +31,11 @@ uniform vec4 u_Pz;
 uniform vec4 u_Pc;
 uniform vec4 u_Pa;
 
+uniform vec4 u_AvgStep; // Step size for gathering color average (should be 0.25 * (range / resolution), i.e. 25% of a pixel)
+uniform bool u_DoAvg;
+
 uniform float u_one;
-uniform vec2 u_pi;
+
 
 
 
@@ -127,146 +130,6 @@ vec2 df64_mult(vec2 a, vec2 b) {
     p = quickTwoSum(p.x, p.y);
     return p;
 }
-
-vec2 df64_diff(vec2 a, vec2 b) {
-    return df64_add(a, b * -1.0);
-}
-
-vec2 df64_div(vec2 b, vec2 a) {
-    float xn = 1.0f / a.x;
-    vec2 yn = split(b.x * xn);
-    float diff = (df64_diff(b, df64_mult(a, yn))).x;
-    vec2 prod = twoProd(xn, diff);
-
-    return df64_add(yn, prod);
-}
-
-vec2 df64_sqr(vec2 a) {
-    return df64_mult(a, a);
-}
-
-vec2 df64_sqrt(vec2 a) {
-    float xn = 1.0f / sqrt(a.x);
-    vec2 yn = split(a.x*xn);
-    vec2 ynsqr = df64_sqr(yn);
-
-    float diff = (df64_diff(a, ynsqr)).x;
-    vec2 prod = twoProd(xn, diff) / 2.0;
-
-    return df64_add(yn, prod);
-}
-
-vec2 df64_expTAYLOR(vec2 a) {
-    // const float thresh = 1.0e-20*exp(a.x);
-    float thresh = 1.0e-20*exp(a.x);
-
-    int i = 0;
-    float m = 2.0f;
-    vec2 f = vec2(2.0f, 0.0f);
-    vec2 s = df64_add(split(1.0f), a);
-    vec2 p = df64_sqr(a);
-    vec2 t = p / 2.0f;
-    while( abs(t.x) > thresh ) {
-        s = df64_add(s, t);
-        p = df64_mult(p, a);
-        m += 1.0f;
-        f = df64_mult(f, split(m));
-        t = df64_div(p, f);
-        if( i >= 100 ) break;
-        i++;
-    }
-
-    return df64_add(s, t);
-}
-
-vec2 df64_log(vec2 a) {
-    vec2 xi = vec2(0.0f, 0.0f);
-
-    if(!df64_eq(a, split(1.0f))) {
-        if( a.x <= 0.0 ) {
-            xi = vec2(log(a.x));   // Return NaN
-        } else {
-            xi.x = log(a.x);
-            xi = df64_add(df64_add(xi, df64_mult(df64_expTAYLOR(-xi), a)), split(-1.0));
-        }
-    }
-
-    return xi;
-}
-
-vec2 __df64_atanTAYLOR(vec2 a) {
-    // FROM AI
-    // const float thresh = 1.0e-20*exp(a.x);
-    float thresh = 1.0e-20*exp(a.x) * u_one;
-    
-    vec2 s = a;
-    vec2 x2 = df64_mult(a, a);
-    vec2 p = a;
-    float n = 1.0;
-    float sgn = 1.0;
-    
-    vec2 t = a; 
-    
-    for(int i = 0; i < 100; i++) {
-        p = df64_mult(p, x2);
-        n += 2.0 * u_one;
-        sgn *= -1.0;
-        
-        // t = (sign * x^n) / n
-        t = df64_div(df64_mult(vec2(sgn, 0.0), p), vec2(n, 0.0 * u_one));
-        
-        s = df64_add(s, t);
-        
-        if (abs(t.x) < thresh) break;
-    }
-    
-    return s;
-}
-
-vec2 df64_atanTAYLOR(vec2 a) {
-    if( abs(a.x) > 1.0 ) {
-        return df64_add(u_pi * u_one, __df64_atanTAYLOR(df64_div(split(1.0), a)) * -1.0);
-    }
-    return __df64_atanTAYLOR(a);
-}
-
-vec4 df64_sincosTAYLOR(vec2 a) {
-    // const float thresh = 1.0e-20 * abs(a.x) * u_one;
-    float thresh = 1.0e-20 * abs(a.x) * u_one;
-
-    vec2 t;
-    vec2 p;
-    vec2 f;
-    vec2 s;
-    vec2 x;
-    float m;
-
-    vec2 sin_a, cos_a;
-    if( a.x == 0.0f ) {
-        sin_a = vec2(0.0f, 0.0f);
-        cos_a = vec2(1.0f, 0.0f);
-    } else {
-        x = df64_sqr(a) * -1.0;
-        s = a;
-        p = a;
-        m = u_one;
-        f = vec2(1.0f, 0.0f);
-        for( int i = 0; i < 100; i++ ) {
-            p = df64_mult(p, x);
-            m += 2.0f;
-            f = df64_mult(f, split(m * (m - 1)));
-            t = df64_div(p, f);
-            s = df64_add(s, t);
-            if( abs(t.x) < thresh ) break;
-        }
-
-        sin_a = s;
-        cos_a = df64_sqrt(df64_add(split(1.0f), df64_sqr(s) * -1.0));
-    }
-
-    return vec4(sin_a, cos_a);
-}
-
 //==
 
 vec4 df64c_add(vec4 a, vec4 b) {
@@ -295,55 +158,67 @@ vec4 df64v2_sdot(vec2 x, vec4 v) {
     return vec4(df64_mult(x, v.xy), df64_mult(x, v.zw));
 }
 
-vec4 df64c_pow(vec4 z, vec4 p) {
-    vec2 z_dot = df64_log(df64_sqrt(df64c_dot(z, z)));
-    vec2 z_atan = df64_atanTAYLOR(df64_div(z.zw, z.xy));
-    vec2 t_r = df64c_dot(p, vec4(z_dot, z_atan));
-    vec2 t_i = df64c_dot(vec4(p.zw, p.xy), vec4(z_dot, z_atan));
-    vec4 sincos = df64_sincosTAYLOR(t_i);
-    return df64v2_sdot(df64_expTAYLOR(t_r), vec4(sincos.zw, sincos.xy));
-}
-
 //---
 
-void main() {
-    vec4 vp = vec4(split(v_pos.x / 2.0), split(v_pos.y / 2.0));
-    //   p = vp * u_D + u_O       (real pos = screen pos * zoom + origin offset)
-    vec4 p = df64c_add(df64v2_mult(vp, u_D), u_O);
-    
-    
-    //   z = [u_Xz, u_Yz] * p + u_Pz    = p.x * u_Xz + p.y * u_Yz + u_Pz
-    vec4 z = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xz), df64v2_sdot(p.zw, u_Yz)), u_Pz);
-    //   c = [u_Xc, u_Yc] * p + u_Pc    = p.x * u_Xc + p.y * u_Yc + u_Pc
-    vec4 c = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xc), df64v2_sdot(p.zw, u_Yc)), u_Pc);
-    //   a = [u_Xa, u_Ya] * p + u_Pa    = p.x * u_Xa + p.y * u_Ya + u_Pa
-    vec4 a = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xa), df64v2_sdot(p.zw, u_Ya)), u_Pa);
-
-
-    int n = 1000;
-    // int n = 200;
+float test_mandel(vec4 z, vec4 c, int n) {
     int i = 0;
     vec2 t = vec2(0.0, 0.0);
     for( i = 0; i < n; i++ ) {
         //   t = z_r ** 2 + z_i ** 2
         t = df64_add(df64_mult(z.xy, z.xy), df64_mult(z.zw, z.zw));
-        if( t.x > 256.0 ) {
+        // if( t.x > 256.0 ) {
+        if( t.x > 4.0 ) {
             break;
         }
         // z = z^2 + c
         // z = df64c_add(df64c_mult(z, z), c);
-        // z = z^a + c
-        z = df64c_add(df64c_pow(z, a), c);
+        z = df64c_add(df64c_mult(z, z), c);
     }
-    // float q = float(i) / float(n);
-    // // q = pow(q, 0.2);
+    // float smooth_i = float(i);
+    // if( (i < n) && (t.x > 0.0) ) {
+    //     smooth_i = float(i) + 1.0 - log2(log2(sqrt(t.x)));
+    // }
+    // return smooth_i;
+    return float(i)/float(n);
+}
 
-    float smooth_i = float(i);
-    if( (i < n) && (t.x > 0.0) ) {
-        smooth_i = float(i) + 1.0 - log2(log2(sqrt(t.x)));
+void main() {
+    // vec4 a = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xa), df64v2_sdot(p.zw, u_Ya)), u_Pa);
+    // z = [u_Xz, u_Yz] * p + u_Pz    = p.x * u_Xz + p.y * u_Yz + u_Pz
+    // vec4 z = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xz), df64v2_sdot(p.zw, u_Yz)), u_Pz);
+    // c = [u_Xc, u_Yc] * p + u_Pc    = p.x * u_Xc + p.y * u_Yc + u_Pc
+    // vec4 c = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xc), df64v2_sdot(p.zw, u_Yc)), u_Pc);
+    vec4 vp = vec4(split(v_pos.x), split(v_pos.y));
+    //   p = vp * u_D + u_O       (real pos = screen pos * zoom + origin offset)
+    vec4 ap = df64c_add(df64v2_mult(vp, u_D), u_O);     // actual p
+    vec4 p = vec4(ap);
+
+    int n_halo = 2;
+    float halo_weight = 1.0;
+    float center_weight = 1.0;
+    int n = 600;
+
+    vec4 z = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xz), df64v2_sdot(p.zw, u_Yz)), u_Pz);
+    vec4 c = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xc), df64v2_sdot(p.zw, u_Yc)), u_Pc);
+
+    float q = test_mandel(z, c, center_weight * n);
+
+    if( u_DoAvg ) {
+        q *= center_weight / (halo_weight + center_weight);
+
+        p = df64c_add(ap, vec4(vec2(0.0f), u_AvgStep.zw * -1.0));
+        z = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xz), df64v2_sdot(p.zw, u_Yz)), u_Pz);
+        c = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xc), df64v2_sdot(p.zw, u_Yc)), u_Pc);
+        q += halo_weight * test_mandel(z, c, n) / (n_halo * halo_weight + center_weight);
+        
+        p = df64c_add(ap, vec4(vec2(0.0f), u_AvgStep.zw));
+        z = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xz), df64v2_sdot(p.zw, u_Yz)), u_Pz);
+        c = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xc), df64v2_sdot(p.zw, u_Yc)), u_Pc);
+        q += halo_weight * test_mandel(z, c, n) / (n_halo * halo_weight + center_weight);
     }
-    float q = clamp(smooth_i / float(n), 0.0, 1.0);
 
 
+    // f_color = vec4(avg_c, 1.0);
+    // q = pow(q, 0.2);
     f_color=vec4(spectral_color(400.0+(300.0*q)),1.0);
 }

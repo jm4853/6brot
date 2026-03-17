@@ -10,6 +10,9 @@ uniform vec2 u_Ax;
 uniform vec2 u_Ay;
 uniform vec2 u_Ap;
 
+uniform vec2 u_AvgStep;
+uniform bool u_DoAvg;
+
 #define PI 3.14159265358979323846
 
 vec2 cx_pow(vec2 z, vec2 p) {
@@ -35,9 +38,21 @@ vec3 spectral_color(float l)        // RGB <0,1> <- lambda l <400,700> [nm]
     return c;
 }
 
+
+float test_mandel(vec2 z, vec2 c, vec2 a, int n) {
+    int i = 0;
+    for( i=0; i<n; i++ ) {
+        if( dot(z, z) > 4 ) { break; }
+        z = cx_pow( z, a ) + c;
+    }
+
+    return float(i)/float(n);
+}
+
 void main() {
     // Viewing Plane (x,y) coords
-    vec2 p = ((v_pos * u_d) / 2.0) + u_o;
+    vec2 ap = ((v_pos * u_d) / 2.0) + u_o;
+    vec2 p = vec2(ap);
 
     // 4d (Re(z), Im(z), Re(c), Im(c)) coords
 
@@ -48,16 +63,43 @@ void main() {
     vec2 a = (p.x * u_Ax) + (p.y * u_Ay) + u_Ap;
 
     
-    int n = 200;
+    // int n = 200;
+    int n_halo = 2;
+    float halo_weight = 1.0;
+    float center_weight = 1.0;
+    int n = 500;
 
-    int i = 0;
-    for( i=0; i<n; i++ ) {
-        if( dot(z, z) > 4 ) { break; }
-        z = cx_pow( z, a ) + c;
+    // int i = 0;
+    // for( i=0; i<n; i++ ) {
+    //     if( dot(z, z) > 4 ) { break; }
+    //     z = cx_pow( z, a ) + c;
+    // }
+
+    // float q=float(i)/float(n);
+    // q = pow(q,0.2);
+    float q = test_mandel(z, c, a, n);
+
+    if( u_DoAvg ) {
+        q *= center_weight / (center_weight + float(n_halo) * halo_weight);
+
+        p = ap + vec2(u_AvgStep.x, 0.0);
+        P = (p.x * u_Xp) + (p.y * u_Yp) + u_P0;
+        z = P.xy;
+        c = P.zw;
+        a = (p.x * u_Ax) + (p.y * u_Ay) + u_Ap;
+        q += halo_weight * test_mandel(z, c, a, n) / (center_weight + float(n_halo) * halo_weight);
+
+        p = ap + vec2(0.0, u_AvgStep.y);
+        P = (p.x * u_Xp) + (p.y * u_Yp) + u_P0;
+        z = P.xy;
+        c = P.zw;
+        a = (p.x * u_Ax) + (p.y * u_Ay) + u_Ap;
+        q += halo_weight * test_mandel(z, c, a, n) / (center_weight + float(n_halo) * halo_weight);
     }
 
-    float q=float(i)/float(n);
-    q = pow(q,0.2);
+
+
+
     f_color=vec4(spectral_color(400.0+(300.0*q)),1.0);
 
 }
