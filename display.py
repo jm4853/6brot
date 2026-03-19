@@ -25,21 +25,20 @@ def splitd(n):
 
 
 class Viewer:
-    VERTEX_SHADER="vertex.glsl"
+    VERTEX_SHADER="shaders/vertex.glsl"
     # F32_FRAGMENT_SHADER="frag.glsl"
-    MANDEL32_FRAG="mandel32.frag"
+    MANDEL32_FRAG="shaders/mandel32.frag"
     # F64_FRAG_SHADER="fragd.glsl"
-    MANDEL64_FRAG="mandel64.frag"
-    BLUR_FRAG_SHADER="blur.frag"
+    MANDEL64_FRAG="shaders/mandel64.frag"
+    BLUR_FRAG_SHADER="shaders/blur.frag"
 
-    def __init__(self, v, u, p, o, a_scale, dx_scale):
+    def __init__(self, v, u, p, o, a_scale):
         self.V = v
         self.U = u
         self.P = p
         self.O = o
         self.A_SCALE = a_scale
         self.ctx = None
-        self.dx_scale = dx_scale
         self.last_y = None
         self.last_x = None
         self.mouse_pressed = None
@@ -68,11 +67,17 @@ class Viewer:
         
         self.ctx = moderngl.create_context()
         
+        # vertices = np.array([
+        #     -1.0, -1.0*(WINDOW_WIDTH/WINDOW_HEIGHT),
+        #     -1.0, (WINDOW_WIDTH/WINDOW_HEIGHT),
+        #     1.0, -1.0*(WINDOW_WIDTH/WINDOW_HEIGHT),
+        #     1.0, (WINDOW_WIDTH/WINDOW_HEIGHT),
+        # ], dtype='f4')
         vertices = np.array([
-            -1.0, -1.0*(WINDOW_WIDTH/WINDOW_HEIGHT),
-            -1.0, (WINDOW_WIDTH/WINDOW_HEIGHT),
-            1.0, -1.0*(WINDOW_WIDTH/WINDOW_HEIGHT),
-            1.0, (WINDOW_WIDTH/WINDOW_HEIGHT),
+            -1.0, -1.0,
+            1.0, -1.0,
+            -1.0, 1.0,
+            1.0, 1.0,
         ], dtype='f4')
         
         prog = self.load_program(self.MANDEL32_FRAG)
@@ -82,6 +87,7 @@ class Viewer:
 
         while not glfw.window_should_close(window):
             time.sleep(0.01)
+            print(self.O)
 
             v = np.array(self.V)
             u = np.array(self.U)
@@ -100,17 +106,25 @@ class Viewer:
             px_sizex = dx * 2 / WINDOW_WIDTH
             px_sizey = dy * 2 / WINDOW_HEIGHT
 
+            ax = x_p[-2:]
+            ay = y_p[-2:]
+            ap = np.array(p[-2:])
+            print(f'ax: {ax}\nay: {ay}\nap: {ap}')
+
             prog['u_Xp'].value = x_p[:-2]
             prog['u_Yp'].value = y_p[:-2]
             prog['u_P0'].value = p[:-2]
             prog['u_o'].value = o
             prog['u_d'].value = (dx, dy)
-            prog['u_Ax'].value = x_p[-2:]
-            prog['u_Ay'].value = y_p[-2:]
-            prog['u_Ap'].value = p[-2:]
+            # prog['u_Ax'].value = x_p[-2:]
+            # prog['u_Ay'].value = y_p[-2:]
+            # prog['u_Ap'].value = p[-2:]
+            # prog['u_Ax'].value = ax
+            # prog['u_Ay'].value = ay
+            prog['u_Ap'].value = np.array([2.0, 0.0], dtype='f4')
 
-            prog['u_AvgStep'].value = ((px_sizex * 0.25), (px_sizey * 0.25))
-            prog['u_DoAvg'] = False
+            # prog['u_AvgStep'].value = ((px_sizex * 0.25), (px_sizey * 0.25))
+            # prog['u_DoAvg'] = False
 
             self.ctx.clear(0.0, 0.0, 0.0)
             vao.render(moderngl.TRIANGLE_STRIP)
@@ -145,6 +159,7 @@ class Viewer:
 
         while not glfw.window_should_close(window):
             time.sleep(0.1)
+            print(self.O)
 
             v = np.array(self.V)
             u = np.array(self.U)
@@ -177,7 +192,7 @@ class Viewer:
             prog['u_D'].value = (*splitd(dx), *splitd(dy))
             prog['u_one'].value = 1.0
             prog['u_AvgStep'].value = (*splitd(px_sizex * 0.25), *splitd(px_sizey * 0.25))
-            prog['u_DoAvg'] = False
+            prog['u_DoAvg'] = True
 
         
             self.ctx.clear(0.0, 0.0, 0.0)

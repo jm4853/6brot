@@ -6,12 +6,7 @@ uniform vec2 u_d;
 uniform vec4 u_Xp;
 uniform vec4 u_Yp;
 uniform vec4 u_P0;
-uniform vec2 u_Ax;
-uniform vec2 u_Ay;
 uniform vec2 u_Ap;
-
-uniform vec2 u_AvgStep;
-uniform bool u_DoAvg;
 
 #define PI 3.14159265358979323846
 
@@ -51,34 +46,41 @@ float test_mandel(vec2 z, vec2 c, vec2 a, int n) {
 
 void main() {
     // Viewing Plane (x,y) coords
-    vec2 ap = ((v_pos * u_d) / 2.0) + u_o;
+    vec2 ap = (v_pos * u_d) + u_o;
     vec2 p = vec2(ap);
 
     // 4d (Re(z), Im(z), Re(c), Im(c)) coords
+    // vec2 a = (p.x * u_Ax) + (p.y * u_Ay) + u_Ap;
+    // vec2 a = u_Ap;
+    float a1 = u_Ap.x;
+    float a2 = u_Ap.y;
+    vec2 a = vec2(a1, a2);
 
     vec4 P = (p.x * u_Xp) + (p.y * u_Yp) + u_P0;
 
     vec2 z = P.xy;
     vec2 c = P.zw;
-    vec2 a = (p.x * u_Ax) + (p.y * u_Ay) + u_Ap;
+
 
     
-    // int n = 200;
     int n_halo = 2;
     float halo_weight = 1.0;
     float center_weight = 1.0;
-    int n = 500;
+    int n = 1000;
 
-    // int i = 0;
-    // for( i=0; i<n; i++ ) {
-    //     if( dot(z, z) > 4 ) { break; }
-    //     z = cx_pow( z, a ) + c;
-    // }
+    int i = 0;
+    for( i=0; i<n; i++ ) {
+        if( dot(z, z) > 4 ) { break; }
+        z = cx_pow( z, vec2(u_Ap.x, u_Ap.y) ) + c;
+        // z = cx_pow( z, vec2(2.0, 0.0) ) + c;
+    }
 
-    // float q=float(i)/float(n);
+    float q=float(i)/float(n);
+    q = pow(q,0.2);
+    // float q = test_mandel(z, c, a, n);
     // q = pow(q,0.2);
-    float q = test_mandel(z, c, a, n);
 
+    /*
     if( u_DoAvg ) {
         q *= center_weight / (center_weight + float(n_halo) * halo_weight);
 
@@ -96,10 +98,19 @@ void main() {
         a = (p.x * u_Ax) + (p.y * u_Ay) + u_Ap;
         q += halo_weight * test_mandel(z, c, a, n) / (center_weight + float(n_halo) * halo_weight);
     }
+    */
 
 
 
 
     f_color=vec4(spectral_color(400.0+(300.0*q)),1.0);
+
+    
+    if( u_Ap.x != 2.0 ) {
+        f_color = vec4(0.0, 1.0, 0.0, 1.0);
+    }
+    if( u_Ap.y != 0.0 ) {
+        f_color = vec4(1.0, 0.0, 0.0, 1.0);
+    }
 
 }
