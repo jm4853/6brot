@@ -1,18 +1,32 @@
 #version 400
 in vec2 v_pos;
 out vec4 f_color;
+
 uniform vec2 u_o;
 uniform vec2 u_d;
+
 uniform vec4 u_Xp;
 uniform vec4 u_Yp;
 uniform vec4 u_P0;
+
+uniform vec2 u_Ax;
+uniform vec2 u_Ay;
 uniform vec2 u_Ap;
+
+uniform vec2 u_AvgStep;
+uniform bool u_DoAvg;
 
 #define PI 3.14159265358979323846
 
 vec2 cx_pow(vec2 z, vec2 p) {
-    float t_r = dot(p, vec2(log(sqrt(dot(z, z))), atan(z.y, z.x)));
-    float t_i = dot(vec2(p.y, p.x), vec2(log(sqrt(dot(z, z))), atan(z.y, z.x)));
+    float r2 = dot(z, z);
+    if( r2 == 0 ) {
+        return vec2(0.0, 0.0);
+    }
+    float ln_r = 0.5 * log(r2);
+    float theta = atan(z.y, z.x);
+    float t_r = p.x * ln_r - p.y * theta;
+    float t_i = p.x * theta + p.y * ln_r;
     return exp(t_r) * vec2(cos(t_i), sin(t_i));
 }
 
@@ -50,11 +64,7 @@ void main() {
     vec2 p = vec2(ap);
 
     // 4d (Re(z), Im(z), Re(c), Im(c)) coords
-    // vec2 a = (p.x * u_Ax) + (p.y * u_Ay) + u_Ap;
-    // vec2 a = u_Ap;
-    float a1 = u_Ap.x;
-    float a2 = u_Ap.y;
-    vec2 a = vec2(a1, a2);
+    vec2 a = (p.x * u_Ax) + (p.y * u_Ay) + u_Ap;
 
     vec4 P = (p.x * u_Xp) + (p.y * u_Yp) + u_P0;
 
@@ -68,19 +78,19 @@ void main() {
     float center_weight = 1.0;
     int n = 1000;
 
-    int i = 0;
-    for( i=0; i<n; i++ ) {
-        if( dot(z, z) > 4 ) { break; }
-        z = cx_pow( z, vec2(u_Ap.x, u_Ap.y) ) + c;
-        // z = cx_pow( z, vec2(2.0, 0.0) ) + c;
-    }
+    // int i = 0;
+    // for( i=0; i<n; i++ ) {
+    //     if( dot(z, z) > 4 ) { break; }
+    //     z = cx_pow( z, a ) + c;
+    //     // z = cx_pow( z, vec2(u_Ap.x, u_Ap.y) ) + c;
+    //     // z = cx_pow( z, vec2(2.0, 0.0) ) + c;
+    // }
 
-    float q=float(i)/float(n);
-    q = pow(q,0.2);
-    // float q = test_mandel(z, c, a, n);
+    // float q=float(i)/float(n);
+    // q = pow(q,0.2);
+    float q = test_mandel(z, c, a, n);
     // q = pow(q,0.2);
 
-    /*
     if( u_DoAvg ) {
         q *= center_weight / (center_weight + float(n_halo) * halo_weight);
 
@@ -98,19 +108,9 @@ void main() {
         a = (p.x * u_Ax) + (p.y * u_Ay) + u_Ap;
         q += halo_weight * test_mandel(z, c, a, n) / (center_weight + float(n_halo) * halo_weight);
     }
-    */
 
 
 
 
     f_color=vec4(spectral_color(400.0+(300.0*q)),1.0);
-
-    
-    if( u_Ap.x != 2.0 ) {
-        f_color = vec4(0.0, 1.0, 0.0, 1.0);
-    }
-    if( u_Ap.y != 0.0 ) {
-        f_color = vec4(1.0, 0.0, 0.0, 1.0);
-    }
-
 }

@@ -31,6 +31,8 @@ class Viewer:
     # F64_FRAG_SHADER="fragd.glsl"
     MANDEL64_FRAG="shaders/mandel64.frag"
     BLUR_FRAG_SHADER="shaders/blur.frag"
+    F32_FPS = 60
+    F64_FPS = 15
 
     def __init__(self, v, u, p, o, a_scale):
         self.V = v
@@ -41,7 +43,7 @@ class Viewer:
         self.ctx = None
         self.last_y = None
         self.last_x = None
-        self.mouse_pressed = None
+        self.mouse_pressed = dict()
 
     def mandel32(self):
         # Initialize GLFW
@@ -86,8 +88,7 @@ class Viewer:
         vao = self.ctx.simple_vertex_array(prog, vbo, 'in_pos')
 
         while not glfw.window_should_close(window):
-            time.sleep(0.01)
-            print(self.O)
+            time.sleep(1 / Viewer.F32_FPS)
 
             v = np.array(self.V)
             u = np.array(self.U)
@@ -106,25 +107,17 @@ class Viewer:
             px_sizex = dx * 2 / WINDOW_WIDTH
             px_sizey = dy * 2 / WINDOW_HEIGHT
 
-            ax = x_p[-2:]
-            ay = y_p[-2:]
-            ap = np.array(p[-2:])
-            print(f'ax: {ax}\nay: {ay}\nap: {ap}')
-
             prog['u_Xp'].value = x_p[:-2]
             prog['u_Yp'].value = y_p[:-2]
             prog['u_P0'].value = p[:-2]
             prog['u_o'].value = o
             prog['u_d'].value = (dx, dy)
-            # prog['u_Ax'].value = x_p[-2:]
-            # prog['u_Ay'].value = y_p[-2:]
-            # prog['u_Ap'].value = p[-2:]
-            # prog['u_Ax'].value = ax
-            # prog['u_Ay'].value = ay
-            prog['u_Ap'].value = np.array([2.0, 0.0], dtype='f4')
+            prog['u_Ax'].value = x_p[-2:]
+            prog['u_Ay'].value = y_p[-2:]
+            prog['u_Ap'].value = p[-2:]
 
-            # prog['u_AvgStep'].value = ((px_sizex * 0.25), (px_sizey * 0.25))
-            # prog['u_DoAvg'] = False
+            prog['u_AvgStep'].value = ((px_sizex * 0.25), (px_sizey * 0.25))
+            prog['u_DoAvg'] = True
 
             self.ctx.clear(0.0, 0.0, 0.0)
             vao.render(moderngl.TRIANGLE_STRIP)
@@ -158,8 +151,8 @@ class Viewer:
         vao = self.ctx.simple_vertex_array(prog, vbo, 'in_pos')
 
         while not glfw.window_should_close(window):
-            time.sleep(0.1)
-            print(self.O)
+            time.sleep(1 / Viewer.F64_FPS)
+            # print(self.O)
 
             v = np.array(self.V)
             u = np.array(self.U)
@@ -202,6 +195,9 @@ class Viewer:
         
         glfw.terminate()
 
+    def print_vectors(self):
+        pass
+
     def load_program(self, fragment_path, vertex_path=VERTEX_SHADER):
         vert = None
         with open(vertex_path, 'r') as f:
@@ -238,15 +234,22 @@ class Viewer:
         def mouse_button_event_handler(window, button, action, mods):
             if button == glfw.MOUSE_BUTTON_LEFT:
                 if action == glfw.PRESS:
-                    self.mouse_pressed = True
+                    self.mouse_pressed['l'] = True
                     self.last_x, self.last_y = glfw.get_cursor_pos(window)
                 elif action == glfw.RELEASE:
-                    self.mouse_pressed = False
+                    self.mouse_pressed['l'] = False
+            elif button == glfw.MOUSE_BUTTON_MIDDLE:
+                if action == glfw.PRESS:
+                    if not self.mouse_pressed.get('m', False):
+                        self.print_vectors()
+                    self.mouse_pressed['m'] = True
+                elif action == glfw.RELEASE:
+                    self.mouse_pressed['m'] = False
         return mouse_button_event_handler
 
     def get_cursor_cb(self):
         def cursor_position_event_handler(window, xpos, ypos):
-            if self.mouse_pressed:
+            if self.mouse_pressed.get('l', False):
                 width, height = glfw.get_window_size(window)
                 drag_delta_x = xpos - self.last_x
                 drag_delta_y = ypos - self.last_y
