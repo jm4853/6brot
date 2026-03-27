@@ -2,6 +2,7 @@ import tkinter as tk
 import threading
 import time
 
+A_SCALE = 6.0
 # LABEL_FONT = "Arial"
 LABEL_FONT = "Computer Modern"
 LABEL_FONT = "Times New Roman"
@@ -16,8 +17,11 @@ def canvas_oval(canvas, x, y):
         tags="point"
     )
 
-def __configure(event, vec, i):
+
+def __configure(event, vec, i, scale_map):
     canvas = event.widget
+    if not isinstance(canvas, tk.Canvas):
+        return
     canvas.delete("all")
     w = canvas.winfo_width()
     h = canvas.winfo_height()
@@ -29,39 +33,50 @@ def __configure(event, vec, i):
         width=2,
         tags="border"
     )
-    x = (vec[2*i] + 1) * w / 2
-    y = (vec[2*i+1] + 1) * h / 2
+    x = (vec[2*i]/scale_map[i] + 1) * w / 2
+    y = (vec[2*i+1]/scale_map[i] + 1) * h / 2
     canvas_oval(canvas, x, y)
 
-def event_configure(vec, i):
-    def __d(event):
-        return __configure(event, vec, i)
-    return __d
-    
-def __draw_dot(event, vec, i):
+
+def __draw_dot(event, vec, i, scale_map):
     canvas = event.widget
+    if not isinstance(canvas, tk.Canvas):
+        return
     canvas.delete("point")
     w = canvas.winfo_width()
     h = canvas.winfo_height()
     canvas_oval(canvas, event.x, event.y)
-    vec[2*i] = 2 * event.x / w - 1
-    vec[2*i+1] = 2 * event.y / h - 1
+    vec[2*i] = (2 * event.x / w - 1) * scale_map[i]
+    vec[2*i+1] = (2 * event.y / h - 1) * scale_map[i]
 
-def event_draw_dot(vec, i):
+def event_configure(vec, i, scale_map):
     def __d(event):
-        return __draw_dot(event, vec, i)
+        return __configure(event, vec, i, scale_map)
     return __d
+
+def event_draw_dot(vec, i, scale_map):
+    def __d(event):
+        return __draw_dot(event, vec, i, scale_map)
+    return __d
+    
+
+def thread_worker(vb, scale_map=None):
+    vp = VectorPanel(vb) if scale_map is None else VectorPanel(vecs, scale_map)
+    vp.work()
 
 
 class VectorPanel:
-    def __init__(self, vecs):
-        self.vecs = vecs
-        self.thr = threading.Thread(target=self.thread_worker, args=vecs, daemon=True)
-    def start(self):
-        self.thr.start()
-        
+    def __init__(self, vbuf, scale_map=None):
+        if scale_map is None:
+            scale_map = [1.0, 1.0, A_SCALE]
+        self.scale_map = scale_map
+        self.vbuf = vbuf
 
-    def thread_worker(self, v, u, p):
+    def work(self):
+        v = self.vbuf['V']
+        u = self.vbuf['U']
+        p = self.vbuf['P']
+        scale_map = self.scale_map.copy()
         root = tk.Tk()
         root.title("Parameter Panel")
         
@@ -80,9 +95,9 @@ class VectorPanel:
         for i, color in enumerate(colors_row1):
             canvas = tk.Canvas(row1_frame, bg=color, width=200, height=200)
             canvas.grid(row=0, column=i, padx=5, pady=5, sticky="nsew")
-            canvas.bind("<Button-1>", event_draw_dot(v, i))
-            canvas.bind("<B1-Motion>", event_draw_dot(v, i))
-            canvas.bind("<Configure>", event_configure(v, i))
+            canvas.bind("<Button-1>", event_draw_dot(v, i, scale_map))
+            canvas.bind("<B1-Motion>", event_draw_dot(v, i, scale_map))
+            canvas.bind("<Configure>", event_configure(v, i, scale_map))
             row1_frame.columnconfigure(i, weight=1)
         
         row2l_frame = tk.Frame(root)
@@ -100,9 +115,9 @@ class VectorPanel:
         for i, color in enumerate(colors_row2):
             canvas = tk.Canvas(row2_frame, bg=color, width=200, height=200)
             canvas.grid(row=0, column=i, padx=5, pady=5, sticky="nsew")
-            canvas.bind("<Button-1>", event_draw_dot(u, i))
-            canvas.bind("<B1-Motion>", event_draw_dot(u, i))
-            canvas.bind("<Configure>", event_configure(u, i))
+            canvas.bind("<Button-1>", event_draw_dot(u, i, scale_map))
+            canvas.bind("<B1-Motion>", event_draw_dot(u, i, scale_map))
+            canvas.bind("<Configure>", event_configure(u, i, scale_map))
             row2_frame.columnconfigure(i, weight=1)
     
         row3l_frame = tk.Frame(root)
@@ -120,9 +135,9 @@ class VectorPanel:
         for i, color in enumerate(colors_row3):
             canvas = tk.Canvas(row3_frame, bg=color, width=200, height=200)
             canvas.grid(row=0, column=i, padx=5, pady=5, sticky="nsew")
-            canvas.bind("<Button-1>", event_draw_dot(p, i))
-            canvas.bind("<B1-Motion>", event_draw_dot(p, i))
-            canvas.bind("<Configure>", event_configure(p, i))
+            canvas.bind("<Button-1>", event_draw_dot(p, i, scale_map))
+            canvas.bind("<B1-Motion>", event_draw_dot(p, i, scale_map))
+            canvas.bind("<Configure>", event_configure(p, i, scale_map))
             row3_frame.columnconfigure(i, weight=1)
     
         root.mainloop()

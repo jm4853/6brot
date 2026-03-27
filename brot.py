@@ -3,11 +3,11 @@ import threading
 import time
 import sys
 import math
-from ControlPanel import VectorPanel
+import vecpanel as VPanel
 from display import Viewer
 import math
+from vecbuf import VectorBuffer
 
-A_SCALE = 6
 
 
 def zoom_worker(o):
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     parser.add_argument('-f64', action='store_true', help='64-bit floating point render')
     parser.add_argument('--julia', action='store_true', help='initialize with julia set')
     ns = parser.parse_args(sys.argv[1:])
-    P = [0,0,0,0,2/A_SCALE,0]
+    P = [0,0,0,0,2,0]
     O = [-0.5,0,1.0]
     # O[:-1] = [-0.2208100689243828, 0.758197816745033]
     # O[:-1] = [-0.3476909928241201, 0.6069024572220293]
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     V = [0,0,0.9,0,0,0]
     U = [0,0,0,0.9,0,0]
     if ns.julia:
-        P = [0,0,-0.53,0.56,2/A_SCALE,0]
+        P = [0,0,-0.53,0.56,2,0]
         O = [0,0,1.0]
         V = [0.9,0,0,0,0,0]
         U = [0,0.9,0,0,0,0]
@@ -58,10 +58,11 @@ if __name__ == "__main__":
         V = [float(v) for v in sys.argv[1:7]]
         U = [float(u) for u in sys.argv[7:]]
 
-    vp = VectorPanel([V, U, P])
-    vp.start()
-    # t = threading.Thread(target=ControlPanel.controlWorker, args=(V, U, P), daemon=True)
-    # t.start()
+    vb = VectorBuffer({'V': V, 'U': U, 'P': P, 'O': O})
+    t = threading.Thread(target=VPanel.thread_worker, args=(vb,), daemon=True)
+    t.start()
+    # TODO: tkinter not thread safe
+    time.sleep(0.5)
 
     # if ns.julia:
     #     a_t = threading.Thread(target=julia_rotate_worker, args=(P,), daemon=True)
@@ -69,9 +70,9 @@ if __name__ == "__main__":
     #     a_t = threading.Thread(target=zoom_worker, args=(O,), daemon=True)
     # a_t.start()
 
-    v = Viewer(V, U, P, O, A_SCALE)
+    v = Viewer(vb)
     if ns.f64:
-        v.mandel64()
+        v.run('mandel64')
     else:
-        v.mandel32()
+        v.run('mandel32')
 
