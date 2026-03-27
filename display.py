@@ -11,8 +11,8 @@ from abc import ABC, abstractmethod
 
 # WINDOW_WIDTH = 800
 # WINDOW_HEIGHT = WINDOW_WIDTH
-WINDOW_WIDTH = 150
-WINDOW_HEIGHT = 150
+WINDOW_WIDTH = 300
+WINDOW_HEIGHT = 300
 
 
 
@@ -38,6 +38,7 @@ class Uniform32(UniformWrapper):
         dy = (WINDOW_HEIGHT / WINDOW_WIDTH) * dx
         px_sizex = dx * 2 / WINDOW_WIDTH
         px_sizey = dy * 2 / WINDOW_HEIGHT
+        self.prog['u_qpow'].value = O[4]
         self.prog['u_n'].value = n
         self.prog['u_o'].value = o
         self.prog['u_d'].value = (dx, dy)

@@ -2,6 +2,7 @@
 in vec2 v_pos;
 out vec4 f_color;
 
+uniform float u_qpow;
 uniform int u_n;
 uniform vec2 u_o;
 uniform vec2 u_d;
@@ -113,6 +114,8 @@ void main() {
 
 
 
-
+    if( u_qpow != 1.0 ) {
+        q = pow(q, u_qpow);
+    }
     f_color=vec4(spectral_color(400.0+(300.0*q)),1.0);
 }
