@@ -16,6 +16,8 @@ much higher near zero.
 in vec2 v_pos;
 out vec4 f_color;
 
+uniform float u_qpow;
+uniform int u_n;
 uniform vec4 u_O;
 uniform vec4 u_D;
 
@@ -183,11 +185,6 @@ float test_mandel(vec4 z, vec4 c, int n) {
 }
 
 void main() {
-    // vec4 a = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xa), df64v2_sdot(p.zw, u_Ya)), u_Pa);
-    // z = [u_Xz, u_Yz] * p + u_Pz    = p.x * u_Xz + p.y * u_Yz + u_Pz
-    // vec4 z = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xz), df64v2_sdot(p.zw, u_Yz)), u_Pz);
-    // c = [u_Xc, u_Yc] * p + u_Pc    = p.x * u_Xc + p.y * u_Yc + u_Pc
-    // vec4 c = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xc), df64v2_sdot(p.zw, u_Yc)), u_Pc);
     vec4 vp = vec4(split(v_pos.x), split(v_pos.y));
     //   p = vp * u_D + u_O       (real pos = screen pos * zoom + origin offset)
     vec4 ap = df64c_add(df64v2_mult(vp, u_D), u_O);     // actual p
@@ -196,9 +193,12 @@ void main() {
     int n_halo = 2;
     float halo_weight = 1.0;
     float center_weight = 1.0;
-    int n = 600;
+    // int n = 600;
+    int n = u_n;
 
+    // z = [u_Xz, u_Yz] * p + u_Pz    = p.x * u_Xz + p.y * u_Yz + u_Pz
     vec4 z = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xz), df64v2_sdot(p.zw, u_Yz)), u_Pz);
+    // c = [u_Xc, u_Yc] * p + u_Pc    = p.x * u_Xc + p.y * u_Yc + u_Pc
     vec4 c = df64c_add(df64c_add(df64v2_sdot(p.xy, u_Xc), df64v2_sdot(p.zw, u_Yc)), u_Pc);
 
     float q = test_mandel(z, c, int(center_weight) * n);
@@ -219,6 +219,8 @@ void main() {
 
 
     // f_color = vec4(avg_c, 1.0);
-    // q = pow(q, 0.2);
+    if( u_qpow != 1 ) {
+        q = pow(q, u_qpow);
+    }
     f_color=vec4(spectral_color(400.0+(300.0*q)),1.0);
 }

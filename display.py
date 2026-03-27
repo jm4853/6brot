@@ -9,10 +9,10 @@ from abc import ABC, abstractmethod
 
 
 
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = WINDOW_WIDTH
 # WINDOW_WIDTH = 800
-# WINDOW_HEIGHT = 400
+# WINDOW_HEIGHT = WINDOW_WIDTH
+WINDOW_WIDTH = 150
+WINDOW_HEIGHT = 150
 
 
 
@@ -34,9 +34,11 @@ class Uniform32(UniformWrapper):
     def set_O(self, O):
         o = np.array(O[:2])
         dx = O[2]
+        n = O[3]
         dy = (WINDOW_HEIGHT / WINDOW_WIDTH) * dx
         px_sizex = dx * 2 / WINDOW_WIDTH
         px_sizey = dy * 2 / WINDOW_HEIGHT
+        self.prog['u_n'].value = n
         self.prog['u_o'].value = o
         self.prog['u_d'].value = (dx, dy)
         self.prog['u_AvgStep'].value = ((px_sizex * 0.25), (px_sizey * 0.25))
@@ -65,11 +67,14 @@ class Uniform64(UniformWrapper):
     def set_O(self, O):
         o = np.array(O[:2])
         dx = O[2]
+        n = O[3]
         dy = (WINDOW_HEIGHT / WINDOW_WIDTH) * dx
         px_sizex = dx * 2 / WINDOW_WIDTH
         px_sizey = dy * 2 / WINDOW_HEIGHT
+        self.prog['u_n'].value = n
         self.prog['u_O'].value = (*splitd(o[0]), *splitd(o[1]))
         self.prog['u_D'].value = (*splitd(dx), *splitd(dy))
+        self.prog['u_qpow'].value = O[4]
         self.prog['u_one'].value = 1.0
         self.prog['u_AvgStep'].value = (*splitd(px_sizex * 0.25), *splitd(px_sizey * 0.25))
         self.prog['u_DoAvg'] = True
@@ -111,7 +116,7 @@ class Viewer:
         if 'P' in updates.keys():
             self.uniforms.set_P(updates['P'])
 
-    def run(self, prog_name):
+    def run(self, prog_name, func=None):
         # Initialize GLFW
         glfw.init()
         window = glfw.create_window(WINDOW_WIDTH, WINDOW_HEIGHT, prog_name, None, None)
@@ -123,13 +128,6 @@ class Viewer:
         
         self.ctx = moderngl.create_context()
 
-        # d = 2*WINDOW_HEIGHT/WINDOW_WIDTH
-        # vertices = np.array([
-        #     -1.0, -d,
-        #     1.0, -d,
-        #     -1.0, d,
-        #     1.0, d,
-        # ], dtype='f4')
         vertices = np.array([
             -1.0, -1.0,
             1.0, -1.0,
@@ -142,21 +140,82 @@ class Viewer:
         vbo = self.ctx.buffer(vertices.tobytes())
         vao = self.ctx.simple_vertex_array(prog, vbo, 'in_pos')
 
-        glfw.wait_events_timeout(0.1)
+        glfw.wait_events_timeout(0.5)   # Updates from vecpanel do not raise glfw event
         while not glfw.window_should_close(window):
+            if not func is None:
+                func(self.vbuf['O'][5], self.vbuf)
             if self.vbuf.dirty:
                 updates = self.vbuf.get_updates()
                 self.process_updates(updates)
                 self.ctx.clear(0.0, 0.0, 0.0)
                 vao.render(moderngl.TRIANGLE_STRIP)
                 glfw.swap_buffers(window)
-            # glfw.poll_events()
             glfw.wait_events()
         
         glfw.terminate()
 
+    def record(self, prog_name, iter_func, n_iter, duration):
+        glfw.init()
+        window = glfw.create_window(WINDOW_WIDTH, WINDOW_HEIGHT, prog_name, None, None)
+        glfw.set_key_callback(window, self.get_key_cb())
+        glfw.set_scroll_callback(window, self.get_scroll_cb())
+        glfw.set_mouse_button_callback(window, self.get_mouse_cb())
+        glfw.set_cursor_pos_callback(window, self.get_cursor_cb())
+        glfw.make_context_current(window)
+        
+        self.ctx = moderngl.create_context()
+
+        vertices = np.array([
+            -1.0, -1.0,
+            1.0, -1.0,
+            -1.0, 1.0,
+            1.0, 1.0,
+        ], dtype='f4')
+        
+        prog = self.load_program(prog_name)
+        
+        vbo = self.ctx.buffer(vertices.tobytes())
+        vao = self.ctx.simple_vertex_array(prog, vbo, 'in_pos')
+
+        frames = []
+
+        for i in range(n_iter):
+            iter_func(i, self.vbuf)
+            vecs = self.vbuf.read()
+            self.process_updates(vecs)
+            self.ctx.clear(0.0, 0.0, 0.0)
+            vao.render(moderngl.TRIANGLE_STRIP)
+            raw_data = self.ctx.screen.read(components=3)
+            img = Image.frombytes('RGB', (WINDOW_WIDTH, WINDOW_HEIGHT), raw_data)
+            img = img.transpose(Image.FLIP_TOP_BOTTOM)
+            frames.append(img)
+            glfw.swap_buffers(window)
+        glfw.terminate()
+        print(f'Saving...')
+        frames[0].save(
+            f'{prog_name}.gif',
+            save_all=True, 
+            append_images=frames[1:], 
+            duration=duration*1000/n_iter,
+            loop=0
+        )
+        print(f'Done!')
+        
+
     def print_vectors(self):
-        pass
+        o = self.vbuf['O'].data
+        dx = o[2]
+        n = o[3]
+        o = o[:2]
+        print('================================')
+        # print(f'n = {n}')
+        # print(f'dx = {dx}')
+        # print(f'O = {o}')
+        print(f'O = {self.vbuf["O"].data}')
+        print(f'V = {self.vbuf["V"].data}')
+        print(f'U = {self.vbuf["U"].data}')
+        print(f'P = {self.vbuf["P"].data}')
+        print('================================')
 
     def load_shaders(self, fragment_path, vertex_path=VERTEX_SHADER):
         vert = None
@@ -182,14 +241,24 @@ class Viewer:
                 print("<Esc> Detected, closing")
                 glfw.set_window_should_close(window, True)
             elif key == glfw.KEY_UP and action != glfw.RELEASE:
-                self.vbuf['O'][1] -= (0.05 * self.vbuf['O'][2])
+                self.vbuf['O'][3] = int(self.vbuf['O'][3] * 1.25)
+                print(f'N = {self.vbuf["O"][3]}')
             elif key == glfw.KEY_DOWN and action != glfw.RELEASE:
-                self.vbuf['O'][1] += (0.05 * self.vbuf['O'][2])
+                self.vbuf['O'][3] = int(self.vbuf['O'][3] / 1.25)
+                print(f'N = {self.vbuf["O"][3]}')
             elif key == glfw.KEY_LEFT and action != glfw.RELEASE:
-                self.vbuf['O'][0] -= (0.05 * self.vbuf['O'][2])
+                if self.vbuf['O'][4] > 0.05:
+                    self.vbuf['O'][4] -= 0.05
+                print(f'q_pow = {self.vbuf["O"][4]}')
             elif key == glfw.KEY_RIGHT and action != glfw.RELEASE:
-                self.vbuf['O'][0] += (0.05 * self.vbuf['O'][2])
-            # print(f'Got key: {key}:{action}')
+                self.vbuf['O'][4] += 0.05
+                if self.vbuf['O'][4] > 1:
+                    self.vbuf['O'][4] = 1.0
+                print(f'q_pow = {self.vbuf["O"][4]}')
+            elif key == glfw.KEY_M and action != glfw.RELEASE:
+                self.vbuf['O'][5] += 1
+            elif key == glfw.KEY_N and action != glfw.RELEASE:
+                self.vbuf['O'][5] -= 1
         return key_event_handler
     
     def get_scroll_cb(self):

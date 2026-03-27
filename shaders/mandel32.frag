@@ -2,6 +2,7 @@
 in vec2 v_pos;
 out vec4 f_color;
 
+uniform int u_n;
 uniform vec2 u_o;
 uniform vec2 u_d;
 
@@ -76,7 +77,8 @@ void main() {
     int n_halo = 2;
     float halo_weight = 1.0;
     float center_weight = 1.0;
-    int n = 1000;
+    // int n = 1000;
+    int n = u_n;
 
     // int i = 0;
     // for( i=0; i<n; i++ ) {
